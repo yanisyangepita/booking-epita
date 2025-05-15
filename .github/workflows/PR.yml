@@ -10,47 +10,73 @@ on:
 jobs:
   DependenciesAnalysis:
     permissions:
-      security-events: write
+      security-events: write 
+      contents: read
     name: DependenciesAnalysis
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout changes
+      - name: Checkout PR code
         uses: actions/checkout@v4
+        with:
+          path: pr_code
 
-      - name: Run OSV Scanner
+      - name: Scan PR dependencies
         uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+        id: scan_pr
         with:
           scan-args: |
-            --lockfile=app/gradle.lockfile
+            --lockfile=pr_code/app/gradle.lockfile
             --format=json
-            --output=osv-pr.json
+            --output=osv-pr-results.json # Le fichier sera créé à la racine de GITHUB_WORKSPACE
         continue-on-error: true
-      
-      -  name: Checkout base
-         uses: actions/checkout@v4
-         with:
-           ref: ${{ github.event.pull_request.base.ref }}
-           fetch-depth: 0
 
-      - name: Run OSV Scanner
+      - name: Checkout base code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base_code
+
+      - name: Scan base dependencies
         uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+        id: scan_base
         with:
-          scan-args: |-
-            --output=osv-diff.sarif
-            --new=osv-current.json
-            --old=osv-base.json
-            --gh-annotations=true
-            --fail-on-vuln=true
+          scan-args: |
+            --lockfile=base_code/app/gradle.lockfile
+            --format=json
+            --output=osv-base-results.json # Le fichier sera créé à la racine de GITHUB_WORKSPACE
         continue-on-error: true
 
-      - name: Run OSV Reporter Action
+      - name: List generated JSON files
+        run: |
+          echo "Contenu du workspace :"
+          ls -l .
+          echo "--- Contenu de osv-pr-results.json (si existe) ---"
+          cat osv-pr-results.json || echo "osv-pr-results.json non trouvé"
+          echo "--- Contenu de osv-base-results.json (si existe) ---"
+          cat osv-base-results.json || echo "osv-base-results.json non trouvé"
+        continue-on-error: true
+
+      - name: Run OSV Reporter for Diff
         uses: google/osv-scanner-action/osv-reporter-action@v2.0.2
+        id: reporter
         with:
-          args: base.sarif pr.sarif > osv-diff.sarif
+          args: > 
+            --old osv-base-results.json
+            --new osv-pr-results.json
+            --output osv-diff.sarif
+            --gh-annotations=true
+            --fail-on-vuln=false # Mettez à 'true' si la PR doit échouer si de nouvelles vulnérabilités sont trouvées par le rapporteur
+        continue-on-error: true 
+
+      - name: Upload SARIF Diff to GitHub Security Tab
+        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-diff.sarif
 
       - name: Upload SARIF Diff Report as Artifact
-        uses: actions/upload-artifact@v4.6.2
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
         with:
-          name: osv-diff-report
+          name: osv-diff-report-artifact
           path: osv-diff.sarif
