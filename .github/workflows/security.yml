@@ -15,15 +15,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@latest
 
       - name: Run OSV Scanner
-        uses: google/osv-scanner-action@v1
+        uses: google/osv-scanner-action@latest
         with:
           scan-fs: '.'
 
       - name: Upload OSV scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@latest
         with:
           sarif_file: 'results.sarif'
           category: 'osv-scanner'
@@ -38,13 +38,13 @@ jobs:
       image: returntocorp/semgrep
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@latest
 
-      - name: Run Semgrep
+      - name: Run Semgrepgoogle/osv-scanner-action@v1
         run: semgrep ci --sarif --output=semgrep.sarif --config="p/java"
 
       - name: Upload Semgrep results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@latest
         with:
           sarif_file: semgrep.sarif
           category: 'semgrep'
