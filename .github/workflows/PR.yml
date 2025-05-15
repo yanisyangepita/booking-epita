@@ -10,72 +10,49 @@ on:
 jobs:
   DependenciesAnalysis:
     permissions:
-      security-events: write 
-      contents: read
+      security-events: write
     name: DependenciesAnalysis
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout PR code
+      - name: Checkout changes
         uses: actions/checkout@v4
-        with:
-          path: pr_code
 
-      - name: Scan PR dependencies
+      - name: Run OSV Scanner
         uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
-        id: scan_pr
         with:
           scan-args: |
-            --lockfile=pr_code/app/gradle.lockfile
+            --lockfile=app/gradle.lockfile
             --format=json
-            --output=osv-pr-results.json # Le fichier sera créé à la racine de GITHUB_WORKSPACE
+            --output=osv-pr.json
         continue-on-error: true
+      
+      -  name: Checkout base
+         uses: actions/checkout@v4
+         with:
+           ref: ${{ github.event.pull_request.base.ref }}
+           fetch-depth: 0
 
-      - name: Checkout base code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: base_code
-
-      - name: Scan base dependencies
+      - name: Run OSV Scanner
         uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
-        id: scan_base
         with:
           scan-args: |
-            --lockfile=base_code/app/gradle.lockfile
+            --lockfile=app/gradle.lockfile
             --format=json
-            --output=osv-base-results.json
+            --output=osv-base.json
         continue-on-error: true
 
-      - name: List generated JSON files
-        run: |
-          echo "Contenu du workspace :"
-          ls -l .
-          echo "--- Contenu de osv-pr-results.json (si existe) ---"
-          cat osv-pr-results.json || echo "osv-pr-results.json non trouvé"
-          echo "--- Contenu de osv-base-results.json (si existe) ---"
-          cat osv-base-results.json || echo "osv-base-results.json non trouvé"
-        continue-on-error: true
-
-      - name: Run OSV Reporter for Diff
+      - name: Run OSV Reporter Action
         uses: google/osv-scanner-action/osv-reporter-action@v2.0.2
-        id: reporter
         with:
-          args: > 
-            --old osv-base-results.json
-            --new osv-pr-results.json
-            --output osv-diff.sarif
+          scan-args: |-
+            --output=osv-diff.sarif
+            --new=osv-pr.json
+            --old=osv-base.json
             --gh-annotations=true
-        continue-on-error: true 
-
-      - name: Upload SARIF Diff to GitHub Security Tab
-        if: success() || failure()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: osv-diff.sarif
-
+            --fail-on-vuln=true
       - name: Upload SARIF Diff Report as Artifact
-        if: success() || failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
-          name: osv-diff-report-artifact
+          name: osv-diff-report
           path: osv-diff.sarif
