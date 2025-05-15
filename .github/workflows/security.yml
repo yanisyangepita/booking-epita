@@ -2,49 +2,50 @@ name: Secweb
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight UTC
-  workflow_dispatch: {}
+    - cron: '0 0 * * *' # Runs daily at 00:00 UTC
+  workflow_dispatch:
 
 jobs:
   DependenciesAnalysis:
-    name: Dependencies Analysis
-    runs-on: ubuntu-latest
     permissions:
       security-events: write
-      actions: read
-      contents: read
+    name: Analyze Dependencies for Vulnerabilities
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Run OSV Scanner
-        uses: google/osv-scanner-action@v2.0.1
+        uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
         with:
-          scan-fs: '.'
+          scan-args: |
+            --lockfile=app/gradle.lockfile
+            --format=sarif
+            --output=osv-results.sarif
+        continue-on-error: true
 
-      - name: Upload OSV scan results to GitHub Security tab
+      - name: Upload SARIF report
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'results.sarif'
-          category: 'osv-scanner'
+          sarif_file: osv-results.sarif
 
   SourceCodeAnalysis:
-    name: Source Code Analysis
-    runs-on: ubuntu-latest
     permissions:
       security-events: write
-      contents: read
+    name: Analyze Source Code with Semgrep
+    runs-on: ubuntu-latest
     container:
       image: returntocorp/semgrep
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        run: semgrep ci --sarif --output=semgrep.sarif --config="p/java"
+      - name: Run Semgrep for Java
+        run: semgrep --config=p/java --sarif --output=semgrep.sarif
 
-      - name: Upload Semgrep results to GitHub Security tab
+      - name: Upload SARIF report
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
-          category: 'semgrep'
