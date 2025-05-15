@@ -23,8 +23,8 @@ jobs:
         with:
           scan-args: |
             --lockfile=app/gradle.lockfile
-            --format=sarif
-            --output=osv-pr.sarif
+            --format=json
+            --output=osv-pr.json
         continue-on-error: true
       
       -  name: Checkout base
@@ -36,18 +36,18 @@ jobs:
       - name: Run OSV Scanner
         uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
         with:
-          scan-args: |
-            --lockfile=app/gradle.lockfile
-            --format=sarif
-            --output=osv-base.sarif
+          scan-args: |-
+            --output=osv-diff.sarif
+            --new=osv-current.json
+            --old=osv-base.json
+            --gh-annotations=true
+            --fail-on-vuln=true
         continue-on-error: true
 
       - name: Run OSV Reporter Action
         uses: google/osv-scanner-action/osv-reporter-action@v2.0.2
         with:
-          base: osv-base.sarif
-          head: osv-pr.sarif
-          output: osv-diff.sarif
+          args: base.sarif pr.sarif > osv-diff.sarif
 
       - name: Upload SARIF Diff Report as Artifact
         uses: actions/upload-artifact@v4.6.2
