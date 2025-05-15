@@ -43,7 +43,7 @@ jobs:
           scan-args: |
             --lockfile=base_code/app/gradle.lockfile
             --format=json
-            --output=osv-base-results.json # Le fichier sera créé à la racine de GITHUB_WORKSPACE
+            --output=osv-base-results.json
         continue-on-error: true
 
       - name: List generated JSON files
@@ -65,7 +65,6 @@ jobs:
             --new osv-pr-results.json
             --output osv-diff.sarif
             --gh-annotations=true
-            --fail-on-vuln=false # Mettez à 'true' si la PR doit échouer si de nouvelles vulnérabilités sont trouvées par le rapporteur
         continue-on-error: true 
 
       - name: Upload SARIF Diff to GitHub Security Tab
