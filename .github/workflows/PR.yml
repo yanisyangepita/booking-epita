@@ -1,0 +1,56 @@
+name: PR_tests
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  DependenciesAnalysis:
+    permissions:
+      security-events: write
+    name: DependenciesAnalysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout changes
+        uses: actions/checkout@v4
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+        with:
+          scan-args: |
+            --lockfile=app/gradle.lockfile
+            --format=sarif
+            --output=osv-pr.sarif
+        continue-on-error: true
+      
+      -  name: Checkout base
+         uses: actions/checkout@v4
+         with:
+           ref: ${{ github.event.pull_request.base.ref }}
+           fetch-depth: 0
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+        with:
+          scan-args: |
+            --lockfile=app/gradle.lockfile
+            --format=sarif
+            --output=osv-base.sarif
+        continue-on-error: true
+
+      - name: Run OSV Reporter Action
+        uses: google/osv-scanner-action/osv-reporter-action@v2.0.2
+        with:
+          base: osv-base.sarif
+          head: osv-pr.sarif
+          output: osv-diff.sarif
+
+      - name: Upload SARIF Diff Report as Artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: osv-diff-report
+          path: osv-diff.sarif
