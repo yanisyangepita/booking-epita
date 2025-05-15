@@ -10,7 +10,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(24)
 	}
 }
 
@@ -21,6 +21,7 @@ repositories {
 
 dependencies {
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+  implementation 'xerces:xercesImpl:2.12.1'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
